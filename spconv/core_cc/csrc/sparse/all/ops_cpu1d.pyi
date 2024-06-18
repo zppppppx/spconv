@@ -1,5 +1,5 @@
 from typing import overload, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
-from pccm.stubs import EnumValue, EnumClassValue
+from pccm.stubs import EnumValue, EnumClassValue, enum
 from cumm.tensorview import Tensor
 class Point2VoxelCPU:
     densehashdata: Tensor
@@ -24,6 +24,23 @@ class Point2VoxelCPU:
             num_point_features: 
             max_num_voxels: 
             max_num_points_per_voxel: 
+        """
+        ...
+    @staticmethod
+    def point_to_pillar_static(points: Tensor, voxels: Tensor, indices: Tensor, num_per_voxel: Tensor, densehashdata: Tensor, points_voxel_id: Tensor, vsize: List[float], grid_size: List[int], grid_stride: List[int], coors_range: List[float], clear_voxels: bool = True) -> Tuple[Tensor, Tensor, Tensor]: 
+        """
+        Args:
+            points: 
+            voxels: 
+            indices: 
+            num_per_voxel: 
+            densehashdata: 
+            points_voxel_id: 
+            vsize: 
+            grid_size: 
+            grid_stride: 
+            coors_range: 
+            clear_voxels: 
         """
         ...
     @staticmethod

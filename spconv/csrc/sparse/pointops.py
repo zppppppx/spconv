@@ -693,6 +693,98 @@ class Point2VoxelCPU(pccm.ParameterizedClass, pccm.pybind.PybindClassMixin):
         """)
         return code.ret("std::tuple<tv::Tensor, tv::Tensor, tv::Tensor>")
 
+    @pccm.pybind.mark
+    @pccm.static_function
+    def point_to_pillar_static(self):
+        code = pccm.FunctionCode()
+        code.arg("points", "tv::Tensor")
+        code.arg("voxels, indices, num_per_voxel, densehashdata, points_voxel_id", "tv::Tensor")
+        code.arg("vsize", f"std::array<float, {self.ndim}>")
+        code.arg("grid_size, grid_stride", f"std::array<int, {self.ndim}>")
+        code.arg("coors_range", f"std::array<float, {self.ndim * 2}>")
+
+        code.arg("clear_voxels", "bool", "true")
+
+        point_xyz = f"{self.ndim - 1} - j"
+        if not self.zyx:
+            point_xyz = f"j"
+        code.raw(f"""
+        auto max_num_voxels = voxels.dim(0);
+        auto max_num_points_per_voxel = voxels.dim(1);
+        num_per_voxel.zero_();
+        if (clear_voxels){{
+            voxels.zero_();
+        }}
+        auto points_voxel_id_ptr = points_voxel_id.data_ptr<int64_t>();
+        int res_voxel_num = 0;
+        int num_features = 1;
+        auto N = points.dim(0);
+        int c;
+        TV_ASSERT_RT_ERR(num_features == voxels.dim(2), "your points num features doesn't equal to voxel.");
+        tv::dispatch<float, double>(points.dtype(), [&](auto I){{
+            using T = decltype(I);
+            auto points_rw = points.tview<T, 2>();
+            auto coors_rw = indices.tview<int, 2>();
+            auto voxels_rw = voxels.tview<{self.dtype}, 3>();
+            auto num_points_per_voxel_rw = num_per_voxel.tview<int, 1>();
+            
+            int coor[{self.ndim}];
+            auto coor_to_voxelidx_rw = densehashdata.tview<int, {self.ndim}>();
+            int voxelidx, num;
+            bool failed;
+            int voxel_num = 0;
+            for (int i = 0; i < N; ++i) {{
+                failed = false;
+                for (int j = 0; j < {self.ndim}; ++j) {{
+                    c = floor((points_rw(i, {point_xyz}) - coors_range[j]) / vsize[j]);
+                    if ((c < 0 || c >= grid_size[j])) {{
+                        failed = true;
+                        break;
+                    }}
+                    coor[j] = c;
+                }}
+                if (failed){{
+                    points_voxel_id_ptr[i] = -1;
+                    continue;
+                }}
+                voxelidx = coor_to_voxelidx_rw({codeops.unpack("coor", range(self.ndim))});
+                
+                if (voxelidx == -1) {{
+                    voxelidx = voxel_num;
+                    if (voxel_num >= max_num_voxels){{
+                        points_voxel_id_ptr[i] = -1;
+                        continue;
+                    }}
+                    voxel_num += 1;
+                    coor_to_voxelidx_rw({codeops.unpack("coor", range(self.ndim))}) = voxelidx;
+                    for (int k = 0; k < {self.ndim}; ++k) {{
+                        coors_rw(voxelidx, k) = coor[k];
+                    }}
+                }}
+                points_voxel_id_ptr[i] = voxelidx;
+                num = num_points_per_voxel_rw(voxelidx);
+                if (num == 0) {{
+                    // voxel_point_mask_rw(voxelidx, num) = {self.dtype}(1);
+                    voxels_rw(voxelidx, 0, 0) = points_rw(i, 2);
+                    voxels_rw(voxelidx, 1, 0) = points_rw(i, 2);
+                }} else {{
+                    if(points_rw(i, 2) > voxels_rw(voxelidx, 0, 0)) {{
+                        voxels_rw(voxelidx, 0, 0) = points_rw(i, 2);
+                    }} else if(points_rw(i, 2) < voxels_rw(voxelidx, 1, 0)) {{
+                        voxels_rw(voxelidx, 1, 0) = points_rw(i, 2);
+                    }}
+                }}
+                num_points_per_voxel_rw(voxelidx) += 1;
+            }}
+            
+            res_voxel_num = voxel_num;
+        }});
+        return std::make_tuple(voxels.slice_first_axis(0, res_voxel_num), 
+            indices.slice_first_axis(0, res_voxel_num), 
+            num_per_voxel.slice_first_axis(0, res_voxel_num));
+        """)
+        return code.ret("std::tuple<tv::Tensor, tv::Tensor, tv::Tensor>")
+
     @pccm.static_function
     def array2tvarray(self):
         code = pccm.FunctionCode()

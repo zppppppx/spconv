@@ -88,6 +88,62 @@ class PointToVoxel(object):
         res = self.generate_voxel_with_id(pc, clear_voxels, empty_mean)
         return res[0], res[1], res[2]
 
+    def pillarize(self,
+                 pc: torch.Tensor,
+                 clear_voxels: bool = True,
+                 empty_mean: bool = False):
+        assert pc.device.type == self.device.type, "your pc device is wrong"
+        expected_hash_data_num = pc.shape[0] * 2
+        with torch.no_grad():
+            pc_voxel_id = torch.empty([pc.shape[0]],
+                                    dtype=torch.int64,
+                                    device=self.device)
+            pc_voxel_id_tv = torch_tensor_to_tv(pc_voxel_id)
+
+            if self.device.type != "cpu":
+                hashdata = torch.empty([expected_hash_data_num, 2],
+                                            dtype=torch.int64,
+                                            device=pc.device)
+
+                point_indice_data = torch.empty([pc.shape[0]],
+                                            dtype=torch.int64,
+                                            device=pc.device)
+
+                pc_tv = torch_tensor_to_tv(pc)
+                stream = get_current_stream()
+                voxels_tv = torch_tensor_to_tv(self.voxels)
+                indices_tv = torch_tensor_to_tv(self.indices)
+                num_per_voxel_tv = torch_tensor_to_tv(self.num_per_voxel)
+                hashdata_tv = torch_tensor_to_tv(
+                    hashdata,
+                    dtype=tv.custom128,
+                    shape=[hashdata.shape[0]])
+                point_indice_data_tv = torch_tensor_to_tv(point_indice_data)
+                with torch.cuda.device(pc.device):
+                    res = SpconvOps.point2voxel_cuda(
+                        pc_tv, voxels_tv, indices_tv, num_per_voxel_tv,
+                        hashdata_tv, point_indice_data_tv, pc_voxel_id_tv, self.vsize,
+                        self.grid_size, self.grid_stride, self.coors_range,
+                        empty_mean, clear_voxels, stream)
+                num_voxels = res[0].shape[0]
+            else:
+                pc_tv = torch_tensor_to_tv(pc)
+                voxels_tv = torch_tensor_to_tv(self.voxels)
+                indices_tv = torch_tensor_to_tv(self.indices)
+                num_per_voxel_tv = torch_tensor_to_tv(self.num_per_voxel)
+                hashdata_tv = torch_tensor_to_tv(self.hashdata, dtype=tv.int32)
+                res = SpconvOps.point2pillar_cpu(pc_tv, voxels_tv, indices_tv,
+                                                num_per_voxel_tv, hashdata_tv,
+                                                pc_voxel_id_tv,
+                                                self.vsize, self.grid_size,
+                                                self.grid_stride,
+                                                self.coors_range, empty_mean,
+                                                clear_voxels)
+                num_voxels = res[0].shape[0]
+
+            return (self.voxels[:num_voxels].clone(), self.indices[:num_voxels].clone(),
+                    self.num_per_voxel[:num_voxels].clone(), pc_voxel_id)
+
     def generate_voxel_with_id(self,
                  pc: torch.Tensor,
                  clear_voxels: bool = True,

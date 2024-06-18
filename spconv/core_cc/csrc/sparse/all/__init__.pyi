@@ -1,5 +1,5 @@
 from typing import overload, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
-from pccm.stubs import EnumValue, EnumClassValue
+from pccm.stubs import EnumValue, EnumClassValue, enum
 from cumm.tensorview import Tensor
 from cumm.tensorview import CUDAKernelTimer
 class ThrustCustomAllocatorV2:
@@ -490,6 +490,24 @@ class SpconvOps:
         ...
     @staticmethod
     def point2voxel_cpu(points: Tensor, voxels: Tensor, indices: Tensor, num_per_voxel: Tensor, densehashdata: Tensor, pc_voxel_id: Tensor, vsize: List[float], grid_size: List[int], grid_stride: List[int], coors_range: List[float], empty_mean: bool = False, clear_voxels: bool = True) -> Tuple[Tensor, Tensor, Tensor]: 
+        """
+        Args:
+            points: 
+            voxels: 
+            indices: 
+            num_per_voxel: 
+            densehashdata: 
+            pc_voxel_id: 
+            vsize: 
+            grid_size: 
+            grid_stride: 
+            coors_range: 
+            empty_mean: 
+            clear_voxels: 
+        """
+        ...
+    @staticmethod
+    def point2pillar_cpu(points: Tensor, voxels: Tensor, indices: Tensor, num_per_voxel: Tensor, densehashdata: Tensor, pc_voxel_id: Tensor, vsize: List[float], grid_size: List[int], grid_stride: List[int], coors_range: List[float], empty_mean: bool = False, clear_voxels: bool = True) -> Tuple[Tensor, Tensor, Tensor]: 
         """
         Args:
             points: 
