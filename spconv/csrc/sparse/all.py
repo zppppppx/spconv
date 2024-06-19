@@ -1525,6 +1525,55 @@ class SpconvOps(pccm.Class):
 
     @pccm.pybind.mark
     @pccm.static_function
+    def point2pillar_cuda(self):
+        code = pccm.FunctionCode()
+        code.arg("points", "tv::Tensor")
+        code.arg("voxels, indices, num_per_voxel, hashdata, point_indice_data, pc_voxel_id",
+                 "tv::Tensor")
+        code.arg("vsize", f"std::vector<float>")
+        code.arg("grid_size", f"std::vector<int>")
+        code.arg("grid_stride", f"std::vector<int64_t>")
+        code.arg("coors_range", f"std::vector<float>")
+
+        code.arg("empty_mean", "bool", "false")
+        code.arg("clear_voxels", "bool", "true")
+        code.arg("stream_int", f"std::uintptr_t", "0")
+        if CUMM_CPU_ONLY_BUILD:
+            return code.make_invalid()
+
+        code.raw(f"""
+        int ndim = vsize.size();
+        TV_ASSERT_RT_ERR(vsize.size() == ndim && grid_stride.size() == ndim && 
+            coors_range.size() == ndim * 2 && grid_size.size() == ndim, 
+            "your params size not equal to ndim", ndim);
+        // voxels: []
+        """)
+        for ndim in self.ndims:
+            code.raw(f"""
+            if (ndim == {ndim}){{
+                std::array<float, {ndim}> vsize_;
+                std::array<int, {ndim}> grid_size_;
+                std::array<int64_t, {ndim}> grid_stride_;
+
+                std::array<float, {ndim * 2}> coors_range_;
+                for (int i = 0; i < {ndim}; ++i){{
+                    vsize_[i] = vsize[i];
+                    grid_size_[i] = grid_size[i];
+                    grid_stride_[i] = grid_stride[i];
+                    coors_range_[i] = coors_range[i];
+                    coors_range_[i + {ndim}] = coors_range[i + {ndim}];
+                }}
+                return Point2Voxel{ndim}D::point_to_pillar_hash_static(points, voxels, indices, 
+                    num_per_voxel, hashdata, point_indice_data, pc_voxel_id,
+                    vsize_, grid_size_, grid_stride_, coors_range_, clear_voxels, 
+                    empty_mean, stream_int);
+            }}
+            """)
+        code.raw(f"""TV_THROW_RT_ERR("unknown ndim", ndim);""")
+        return code.ret("std::tuple<tv::Tensor, tv::Tensor, tv::Tensor>")
+
+    @pccm.pybind.mark
+    @pccm.static_function
     def get_int32_max(self):
         code = pccm.FunctionCode()
         code.raw(f"return std::numeric_limits<int>::max();")

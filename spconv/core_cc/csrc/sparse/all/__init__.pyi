@@ -545,6 +545,26 @@ class SpconvOps:
         """
         ...
     @staticmethod
+    def point2pillar_cuda(points: Tensor, voxels: Tensor, indices: Tensor, num_per_voxel: Tensor, hashdata: Tensor, point_indice_data: Tensor, pc_voxel_id: Tensor, vsize: List[float], grid_size: List[int], grid_stride: List[int], coors_range: List[float], empty_mean: bool = False, clear_voxels: bool = True, stream_int: int = 0) -> Tuple[Tensor, Tensor, Tensor]: 
+        """
+        Args:
+            points: 
+            voxels: 
+            indices: 
+            num_per_voxel: 
+            hashdata: 
+            point_indice_data: 
+            pc_voxel_id: 
+            vsize: 
+            grid_size: 
+            grid_stride: 
+            coors_range: 
+            empty_mean: 
+            clear_voxels: 
+            stream_int: 
+        """
+        ...
+    @staticmethod
     def get_int32_max() -> int: ...
     @staticmethod
     def get_handcrafted_max_act_out(num_act_in: int, ksize: List[int], stride: List[int], padding: List[int], dilation: List[int]) -> int: 

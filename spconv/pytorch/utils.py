@@ -120,7 +120,7 @@ class PointToVoxel(object):
                     shape=[hashdata.shape[0]])
                 point_indice_data_tv = torch_tensor_to_tv(point_indice_data)
                 with torch.cuda.device(pc.device):
-                    res = SpconvOps.point2voxel_cuda(
+                    res = SpconvOps.point2pillar_cuda(
                         pc_tv, voxels_tv, indices_tv, num_per_voxel_tv,
                         hashdata_tv, point_indice_data_tv, pc_voxel_id_tv, self.vsize,
                         self.grid_size, self.grid_stride, self.coors_range,
