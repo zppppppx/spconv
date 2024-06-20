@@ -272,24 +272,24 @@ class Point2VoxelKernel(pccm.ParameterizedClass, pccm.pybind.PybindClassMixin):
         code.arg("num_points", f"int")
         # TODO add backward?
         code.raw(f"""
-        int voxel_stride0 = point_stride * max_points_per_voxel;
+        int voxel_stride0 = max_points_per_voxel;
+        point_stride = 3;
         for (int i : tv::KernelLoopX<int>(num_points)){{
             int64_t prod = points_indice_data[i];
             int voxel_id = -1;
             if (prod != -1){{
                 auto voxel_index_pair = table.lookup(prod);
-                if (!voxel_index_pair.empty() &&
-                    voxel_index_pair.second < max_voxels) {{
+                if (!voxel_index_pair.empty()) {{
                     voxel_id = voxel_index_pair.second;
                     int old = atomicAdd(num_per_voxel + voxel_index_pair.second, 1);
                     if (old == 0) {{
                         voxels[voxel_index_pair.second * voxel_stride0] = points[i * point_stride + 2];
-                        voxels[voxel_index_pair.second * voxel_stride0 + point_stride] = points[i * point_stride + 2];
+                        voxels[voxel_index_pair.second * voxel_stride0 + 1] = points[i * point_stride + 2];
                     }} else {{
                         if (points[i * point_stride + 2] > voxels[voxel_index_pair.second * voxel_stride0]) {{
                             voxels[voxel_index_pair.second * voxel_stride0] = points[i * point_stride + 2];
-                        }} else if (points[i * point_stride + 2] < voxels[voxel_index_pair.second * voxel_stride0 + point_stride]) {{
-                            voxels[voxel_index_pair.second * voxel_stride0 + point_stride] = points[i * point_stride + 2];
+                        }} else if (points[i * point_stride + 2] < voxels[voxel_index_pair.second * voxel_stride0 + 1]) {{
+                            voxels[voxel_index_pair.second * voxel_stride0 + 1] = points[i * point_stride + 2];
                         }}
                     }}
                 }}
