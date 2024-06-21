@@ -357,7 +357,7 @@ class Point2Voxel(pccm.ParameterizedClass, pccm.pybind.PybindClassMixin):
         self.ndim = ndim
         self.zyx = zyx
         cuda_funcs = [
-            self.point_to_voxel_hash, self.point_to_voxel_hash_static, self.point_to_pillar_hash_static
+            self.point_to_voxel_hash, self.point_to_voxel_hash_static, self.point_to_pillar_hash_static, self.point_to_pillar_hash
         ]
         self.add_impl_only_param_class(
             cuda_funcs, "kernel", Point2VoxelKernel(dtype, ndim, layout, zyx))
@@ -539,6 +539,32 @@ class Point2Voxel(pccm.ParameterizedClass, pccm.pybind.PybindClassMixin):
 
         """)
         return code.ret("std::tuple<tv::Tensor, tv::Tensor, tv::Tensor>")
+
+    @pccm.pybind.mark
+    @pccm.cuda.member_function
+    def point_to_pillar_hash(self):
+        code = pccm.FunctionCode()
+        code.arg("points", "tv::Tensor")
+        code.arg("clear_voxels", "bool", "true")
+        code.arg("empty_mean", "bool", "false")
+        code.arg("stream_int", f"std::uintptr_t", "0")
+
+        code.raw(f"""
+        tv::Tensor points_voxel_id = tv::empty({{points.dim(0)}}, tv::int64, 0);
+        int64_t expected_hash_data_num = points.dim(0) * 2;
+        if (hashdata.dim(0) < expected_hash_data_num){{
+            hashdata = tv::zeros({{expected_hash_data_num}}, tv::custom128, 0);
+        }}
+        if (point_indice_data.dim(0) < points.dim(0)){{
+            point_indice_data = tv::zeros({{points.dim(0)}}, tv::int64, 0);
+        }}
+        auto res_static = point_to_pillar_hash_static(points, voxels, indices, num_per_voxel, 
+            hashdata, point_indice_data, points_voxel_id, Point2VoxelCommon::tvarray2array(vsize), 
+            Point2VoxelCommon::tvarray2array(grid_size), Point2VoxelCommon::tvarray2array(grid_stride), 
+            Point2VoxelCommon::tvarray2array(coors_range), clear_voxels, empty_mean, stream_int);
+        return std::tuple_cat(res_static, std::make_tuple(points_voxel_id));
+        """)
+        return code.ret("std::tuple<tv::Tensor, tv::Tensor, tv::Tensor, tv::Tensor>")
 
     @pccm.pybind.mark
     @pccm.cuda.static_function
@@ -823,6 +849,24 @@ class Point2VoxelCPU(pccm.ParameterizedClass, pccm.pybind.PybindClassMixin):
             num_per_voxel.slice_first_axis(0, res_voxel_num));
         """)
         return code.ret("std::tuple<tv::Tensor, tv::Tensor, tv::Tensor>")
+
+    @pccm.pybind.mark
+    @pccm.member_function
+    def point_to_pillar(self):
+        code = pccm.FunctionCode()
+        code.arg("points", "tv::Tensor")
+        code.arg("clear_voxels", "bool", "true")
+        code.raw(f"""
+        tv::Tensor points_voxel_id = tv::empty({{points.dim(0)}}, tv::int64, -1);
+
+        auto res_static = point_to_pillar_static(points, voxels, indices, num_per_voxel, densehashdata, 
+            points_voxel_id, tvarray2array(vsize), 
+            tvarray2array(grid_size), tvarray2array(grid_stride), 
+            tvarray2array(coors_range), clear_voxels);
+        return std::tuple_cat(res_static, std::make_tuple(points_voxel_id));
+        """)
+        return code.ret("std::tuple<tv::Tensor, tv::Tensor, tv::Tensor, tv::Tensor>")
+
 
     @pccm.pybind.mark
     @pccm.static_function

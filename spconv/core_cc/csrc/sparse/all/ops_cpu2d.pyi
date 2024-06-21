@@ -26,6 +26,13 @@ class Point2VoxelCPU:
             max_num_points_per_voxel: 
         """
         ...
+    def point_to_pillar(self, points: Tensor, clear_voxels: bool = True) -> Tuple[Tensor, Tensor, Tensor, Tensor]: 
+        """
+        Args:
+            points: 
+            clear_voxels: 
+        """
+        ...
     @staticmethod
     def point_to_pillar_static(points: Tensor, voxels: Tensor, indices: Tensor, num_per_voxel: Tensor, densehashdata: Tensor, points_voxel_id: Tensor, vsize: List[float], grid_size: List[int], grid_stride: List[int], coors_range: List[float], clear_voxels: bool = True) -> Tuple[Tensor, Tensor, Tensor]: 
         """
